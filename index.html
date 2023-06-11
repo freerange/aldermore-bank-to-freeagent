@@ -1,0 +1,76 @@
+<html>
+  <head>
+    <title>Aldermore Bank to FreeAgent</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <script src="/aldermore-bank-to-freeagent/browser.script.iife.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+  </head>
+
+  <body>
+    <div class="container">
+        <h1>Aldermore Bank to FreeAgent</h1>
+        <h3>CSV downloaded from Aldermore Bank</h3>
+        <div class="col-10 col-sm-8 col-md-6 col-lg-4">
+          <form id="upload">
+            <div class="mb-3">
+              <input class="form-control" id="file" type="file">
+            </div>
+            <button type="submit" class="btn btn-primary">Reformat</button>
+          </form>
+        </div>
+        <h3>CSV suitable for upload to FreeAgent</h3>
+        <a id="download" class="btn btn-primary disabled">Download</a>
+    </div>
+  </body>
+
+  <script type="text/ruby">
+    require 'js'
+    require 'csv'
+    require 'date'
+
+    def reformat_csv(text:)
+      StringIO.open do |io|
+        CSV(text, headers: true, skip_blanks: true) do |csv|
+          csv.each do |row|
+            io.puts([
+              Date.parse(row['Date']).strftime('%d/%m/%Y'),
+              row['Amount'].gsub(/,/, ''),
+              row['Description'].gsub(/,/, '')
+            ].join(','))
+          end
+        end
+        io.rewind
+        io.read
+      end
+    end
+
+    def create_url(text:, filename:)
+      escaped_text = text.gsub(/\n/, "\\\\n")
+
+      JS.eval(%(
+        return URL.createObjectURL(
+          new File(['#{escaped_text}'], '#{filename}', { type: "text/csv" }))
+        )
+      )
+    end
+
+    document = JS.global[:document]
+    form = document.getElementById('upload')
+    form.addEventListener('submit') do |event|
+      event.preventDefault
+      input = document.getElementById('file')
+      input_file = input['files'][0]
+      input_file.text.call(:then) do |input_text|
+        output_text = reformat_csv(text: input_text.to_s)
+        basename = File.basename(input_file[:name].to_s, '.csv')
+        output_filename = "#{basename}.freeagent.csv"
+        url = create_url(text: output_text, filename: output_filename)
+        download_button = document.getElementById('download')
+        download_button[:href] = url
+        download_button[:download] = output_filename
+        download_button[:classList].remove('disabled')
+      end
+    end
+  </script>
+</html>
