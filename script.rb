@@ -6,8 +6,17 @@ def reformat_csv(text:)
   StringIO.open do |io|
     CSV(text, headers: true, skip_blanks: true) do |csv|
       csv.each do |row|
+        case row['Date']
+        when 'Today'
+          date = Date.today
+        when 'Yesterday'
+          date = Date.today - 1
+        else
+          date = Date.parse(row['Date'])
+        end
+
         io.puts([
-          Date.parse(row['Date']).strftime('%d/%m/%Y'),
+          date.strftime('%d/%m/%Y'),
           row['Amount'].gsub(/,/, ''),
           row['Description'].gsub(/,/, '')
         ].join(','))
